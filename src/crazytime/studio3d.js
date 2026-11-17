@@ -187,7 +187,7 @@ export class CrazyStudio {
 
     // 54 label plates riding on the face (crisp text instead of a painted strip)
     const plateH = R * 0.40;
-    const plateW = 2 * (R * 0.70) * Math.sin(segA / 2) * 0.94;
+    const plateW = plateH * (128 / 512);
     for (let i = 0; i < CT_WHEEL.length; i++) {
       const mid = -Math.PI / 2 + i * segA;
       const plate = new THREE.Mesh(
@@ -457,16 +457,16 @@ export class CrazyStudio {
     const aspect = (el.clientWidth || 1) / (el.clientHeight || 1);
     if (aspect > 1.5) {
       this.camera.fov = 40;
-      this.camera.position.set(0.22, 2.20, 6.5);
-      this.camera.lookAt(-0.05, 1.72, 0);
+      this.camera.position.set(0.14, 1.62, 6.7);
+      this.camera.lookAt(-0.05, 1.56, 0);
     } else if (aspect > 1.05) {
       this.camera.fov = 44;
-      this.camera.position.set(0.22, 2.25, 7.2);
-      this.camera.lookAt(-0.05, 1.70, 0);
+      this.camera.position.set(0.14, 1.66, 7.4);
+      this.camera.lookAt(-0.05, 1.58, 0);
     } else {
       this.camera.fov = 52;
-      this.camera.position.set(0.40, 2.05, 7.0);
-      this.camera.lookAt(0.02, 1.60, 0);
+      this.camera.position.set(0.34, 1.72, 7.2);
+      this.camera.lookAt(0.02, 1.56, 0);
     }
     // on a narrow screen the host tucks in closer to the wheel
     if (this.host) {
