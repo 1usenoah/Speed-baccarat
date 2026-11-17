@@ -1,0 +1,20 @@
+import { chromium } from 'playwright';
+import { spawn } from 'node:child_process';
+const PORT=5199, BASE=`http://127.0.0.1:${PORT}/Speed-baccarat/`;
+const pv = spawn(process.execPath,['node_modules/vite/bin/vite.js','preview','--port',String(PORT),'--strictPort','--host','127.0.0.1'],{cwd:'/workspace/projects/speed-baccarat',stdio:'ignore'});
+const wait=(ms)=>new Promise(r=>setTimeout(r,ms));
+for(let i=0;i<40;i++){try{if((await fetch(BASE)).ok)break;}catch(e){}await wait(250);}
+const b = await chromium.launch({executablePath:'/workspace/.cache/ms-playwright/chromium-1255/chrome-linux64/chrome',args:['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+const ctx = await b.newContext({viewport:{width:1440,height:900}});
+const page = await ctx.newPage();
+await page.goto(BASE,{waitUntil:'load'});
+await wait(2000);
+let t=Date.now();
+await page.screenshot({path:'/workspace/downloads/speed-baccarat/speed1.png',timeout:120000});
+console.log('screenshot1 ms', Date.now()-t);
+t=Date.now();
+await page.screenshot({path:'/workspace/downloads/speed-baccarat/speed2.png',timeout:120000});
+console.log('screenshot2 ms', Date.now()-t);
+const fps = await page.evaluate(()=>new Promise(r=>{let n=0;const t0=performance.now();const f=()=>{n++;if(performance.now()-t0<3000)requestAnimationFrame(f);else r(n/3);};requestAnimationFrame(f);}));
+console.log('fps', fps);
+await b.close(); pv.kill('SIGKILL'); process.exit(0);

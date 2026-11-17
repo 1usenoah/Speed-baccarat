@@ -1,0 +1,6 @@
+node_modules/
+dist/
+tests/build.log
+tests/verify.log
+*.log
+.DS_Store
