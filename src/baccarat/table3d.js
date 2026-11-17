@@ -27,14 +27,14 @@ export const LAYOUT = {
   discard: { x: -0.62, z: -0.66 },
   slots: {
     P: [
-      { x: -0.37, z: -0.44, rot: 0 },
-      { x: -0.235, z: -0.44, rot: 0 },
-      { x: -0.305, z: -0.18, rot: Math.PI / 2 }
+      { x: -0.52, z: -0.36, rot: 0 },
+      { x: -0.24, z: -0.36, rot: 0 },
+      { x: -0.40, z: -0.02, rot: Math.PI / 2 }
     ],
     B: [
-      { x: 0.235, z: -0.44, rot: 0 },
-      { x: 0.37, z: -0.44, rot: 0 },
-      { x: 0.305, z: -0.18, rot: Math.PI / 2 }
+      { x: 0.24, z: -0.36, rot: 0 },
+      { x: 0.52, z: -0.36, rot: 0 },
+      { x: 0.40, z: -0.02, rot: Math.PI / 2 }
     ]
   }
 };
@@ -415,9 +415,9 @@ export class BaccaratTable {
     const p = profile || {};
     this.dealerPhoto = new PhotoPerson({
       file: `${p.id || 'sofia'}.webp`,
-      height: 1.34,
+      height: 1.30,
       x: 0,
-      y: LAYOUT.dealerY + 0.67, // group origin = plane centre
+      y: LAYOUT.dealerY + 0.50, // group origin = plane centre
       z: LAYOUT.dealerZ
     });
     this.scene.add(this.dealerPhoto.group);
@@ -442,22 +442,33 @@ export class BaccaratTable {
   frameCamera() {
     const el = this.canvas.parentElement || this.canvas;
     const aspect = (el.clientWidth || 1) / (el.clientHeight || 1);
-    // Broadcast framing: head and shoulders upper third, felt in the lower half.
+    // Broadcast framing: the felt fills the lower half, the dealer's head and
+    // shoulders sit in the upper third, close enough that the cards read.
     if (aspect > 1.55) {
-      this.camera.fov = 44;
-      this.camera.position.set(0, 2.05, 2.90);
-      this.camTarget = new THREE.Vector3(0, 0.10, -0.35);
+      this.camera.fov = 41;
+      this.camera.position.set(0, 2.34, 2.66);
+      this.camTarget = new THREE.Vector3(0, 0.22, -0.06);
     } else if (aspect > 1.1) {
-      this.camera.fov = 46;
-      this.camera.position.set(0, 2.05, 3.05);
-      this.camTarget = new THREE.Vector3(0, 0.10, -0.35);
+      this.camera.fov = 45;
+      this.camera.position.set(0, 2.36, 2.82);
+      this.camTarget = new THREE.Vector3(0, 0.24, -0.06);
     } else {
-      this.camera.fov = 56;
-      this.camera.position.set(0, 1.95, 2.85);
-      this.camTarget = new THREE.Vector3(0, -0.32, -0.40);
+      this.camera.fov = 54;
+      this.camera.position.set(0, 2.30, 2.70);
+      this.camTarget = new THREE.Vector3(0, 0.16, -0.02);
+    }
+    this.camBase = { pos: this.camera.position.clone(), target: this.camTarget.clone() };
+    if (!this._camPos) {
+      this._camPos = this.camBase.pos.clone();
+      this._camTgt = this.camBase.target.clone();
     }
     this.camera.lookAt(this.camTarget);
     this.camera.updateProjectionMatrix();
+  }
+
+  /** push the camera in on a card for the squeeze, then let it drift back */
+  setFocus(pos = null, target = null) {
+    this.focusPose = pos ? { pos, target } : null;
   }
 
   onResize() {
@@ -481,6 +492,17 @@ export class BaccaratTable {
         }
       }
       this.dealerPhoto.update(dt);
+    }
+
+    // camera drift between the wide shot and the squeeze close-up
+    if (this.camBase && this._camPos) {
+      const wantP = this.focusPose ? this.focusPose.pos : this.camBase.pos;
+      const wantT = this.focusPose ? this.focusPose.target : this.camBase.target;
+      const k = 1 - Math.exp(-6.2 * dt);
+      this._camPos.lerp(wantP, k);
+      this._camTgt.lerp(wantT, k);
+      this.camera.position.copy(this._camPos);
+      this.camera.lookAt(this._camTgt);
     }
 
     this.composer.render();
@@ -513,53 +535,63 @@ export class BaccaratTable {
     if (this.dealerPhoto) this.dealerPhoto.lean(0.55);
 
     // A — slide out of the shoe along a shallow arc
-    const hover = new THREE.Vector3(slot.x, 0.075, slot.z + 0.06);
-    const durA = 340 / speed;
+    const hover = new THREE.Vector3(slot.x, 0.085, slot.z + 0.10);
+    const durA = 300 / speed;
     await new Promise((resolve) => {
       const t0 = performance.now();
       const step = (n) => {
         const t = Math.min(1, (n - t0) / durA);
         const e = easeOutCubic(t);
         card.position.lerpVectors(from, hover, e);
-        card.position.y = lerp(from.y, hover.y, e) + Math.sin(Math.PI * e) * 0.045;
-        card.rotation.z = Math.sin(Math.PI * e) * -0.35;
+        card.position.y = lerp(from.y, hover.y, e) + Math.sin(Math.PI * e) * 0.05;
+        card.rotation.z = Math.sin(Math.PI * e) * -0.30;
         if (t < 1) requestAnimationFrame(step);
         else resolve();
       };
       requestAnimationFrame(step);
     });
 
-    // B — squeeze: the near corner lifts, the card stands up on its edge
-    const durB = 210 / speed;
+    // B — the squeeze: the card stands up on its far edge and the near edge
+    // peels toward the camera, revealing the face corner by corner
+    this.setFocus(
+      new THREE.Vector3(slot.x * 0.45 + 0.02, 1.12, slot.z + 1.30),
+      new THREE.Vector3(slot.x * 0.82, 0.10, slot.z - 0.02)
+    );
+    const durB = 780 / speed;
     await new Promise((resolve) => {
       const t0 = performance.now();
       const step = (n) => {
         const t = Math.min(1, (n - t0) / durB);
         const e = easeInOutCubic(t);
-        card.rotation.x = Math.PI * (1 - e * 0.72); // peels toward the camera
-        card.rotation.z = lerp(-0.35, -0.12, e);
-        card.position.y = lerp(0.075, 0.052, e);
-        card.position.z = lerp(slot.z + 0.06, slot.z + 0.03, e);
+        // hinge about the far edge: back stays down, face swings up to camera
+        card.rotation.x = Math.PI * (1 - e * 0.86);
+        card.rotation.y = Math.sin(t * Math.PI) * 0.10;
+        card.rotation.z = lerp(-0.30, 0.02, e) + Math.sin(t * Math.PI * 2) * 0.012;
+        card.position.y = lerp(0.085, 0.115, e) + Math.sin(t * Math.PI) * 0.028;
+        card.position.z = lerp(slot.z + 0.10, slot.z + 0.035, e);
+        card.position.x = lerp(slot.x + (from.x - slot.x) * 0.15, slot.x, e);
         if (t < 1) requestAnimationFrame(step);
         else resolve();
       };
       requestAnimationFrame(step);
     });
-    await wait(45 / speed);
+    // hold the reveal so the ink actually registers
+    await wait(110 / speed);
 
-    // C — snap flat, face up
-    const durC = 200 / speed;
+    // C — snap flat, face up, with a little bounce
+    const durC = 230 / speed;
     await new Promise((resolve) => {
       const t0 = performance.now();
       const step = (n) => {
         const t = Math.min(1, (n - t0) / durC);
         const e = easeInOutCubic(t);
-        card.rotation.x = Math.PI * 0.28 * (1 - e);
-        card.rotation.z = 0;
+        card.rotation.x = Math.PI * 0.14 * (1 - e);
+        card.rotation.y = 0;
+        card.rotation.z = lerp(0.02, 0, e);
         card.position.set(
-          lerp(slot.x + 0.01, slot.x, e),
-          lerp(0.052, 0.0035, e) + Math.sin(Math.PI * e) * 0.005,
-          lerp(slot.z + 0.03, slot.z, e)
+          lerp(slot.x, slot.x, e),
+          lerp(0.115, 0.0045, e) + Math.sin(Math.PI * e) * 0.006,
+          lerp(slot.z + 0.035, slot.z, e)
         );
         if (t < 1) requestAnimationFrame(step);
         else resolve();
@@ -568,9 +600,10 @@ export class BaccaratTable {
     });
 
     card.rotation.set(0, slot.rot, 0);
-    card.position.set(slot.x, 0.0018 + index * 0.0006, slot.z);
+    card.position.set(slot.x, 0.0026 + index * 0.0008, slot.z);
     this.cards.push(card);
     if (this.dealerPhoto) this.dealerPhoto.lean(0.1);
+    setTimeout(() => this.setFocus(null), 260 / speed);
     return card;
   }
 

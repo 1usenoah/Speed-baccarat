@@ -4,13 +4,13 @@
    ========================================================================= */
 import * as THREE from 'three';
 
-const CARD_W = 0.132;
-const CARD_H = 0.186;
+const CARD_W = 0.198;
+const CARD_H = 0.280;
 const TEX_W = 620;
 const TEX_H = 868;
 
-const RED = '#c2263a';
-const BLACK = '#15181f';
+const RED = '#c8102e';
+const BLACK = '#0a0a0d';
 const SUIT_GLYPH = { S: '♠', H: '♥', D: '♦', C: '♣' };
 const isRed = (s) => s === 'H' || s === 'D';
 
@@ -289,15 +289,16 @@ export function createCard(rank, suit, { backTint = null } = {}) {
 
   const faceMat = new THREE.MeshPhysicalMaterial({
     map: getFaceTexture(rank, suit),
-    roughness: 0.34,
+    roughness: 0.46,
     metalness: 0.0,
-    clearcoat: 0.85,
-    clearcoatRoughness: 0.18,
+    clearcoat: 0.45,
+    clearcoatRoughness: 0.30,
     sheen: 0.2,
     sheenColor: new THREE.Color(0xffffff)
   });
   const face = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W, CARD_H), faceMat);
-  face.rotation.x = -Math.PI / 2;
+  // top of the print faces the camera (near edge), so the corner index reads
+  face.rotation.set(-Math.PI / 2, 0, 0);
   face.position.y = 0.0016;
   group.add(face);
 
@@ -310,7 +311,7 @@ export function createCard(rank, suit, { backTint = null } = {}) {
     clearcoatRoughness: 0.14
   });
   const back = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W, CARD_H), backMat);
-  back.rotation.x = Math.PI / 2;
+  back.rotation.set(Math.PI / 2, 0, 0);
   back.position.y = -0.0016;
   group.add(back);
 

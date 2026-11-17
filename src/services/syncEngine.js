@@ -203,13 +203,17 @@ export function recentBaccarat(tableId, count = 60, endIndex = null) {
 }
 
 /* ------------------------------------------------------- crazy time data */
-const CT_WHEEL = [];
-(function buildWheel() {
-  const push = (v, n) => { for (let i = 0; i < n; i++) CT_WHEEL.push(v); };
-  push('n1', 21); push('n2', 13); push('n5', 6); push('n10', 4);
-  push('cf', 4); push('pa', 2); push('ch', 2); push('ct', 1);
-})();
-export { CT_WHEEL };
+/* The real Evolution Crazy Time wheel, 54 segments in clockwise order starting
+   at 12 o'clock: 1×21, 2×13, 5×7, 10×4, COIN FLIP×4, CASH HUNT×2, PACHINKO×2,
+   CRAZY TIME×1. Index 0..53 is the physical position, so the deterministic
+   result index and the painted wedge can never drift apart. */
+export const CT_WHEEL = [
+  'n1', 'n2', 'n5', 'n1', 'n2', 'pa', 'n1', 'n5', 'n1', 'n2', 'n1', 'cf',
+  'n1', 'n2', 'n1', 'n10', 'n2', 'ch', 'n1', 'n2', 'n1', 'n5', 'n1', 'cf',
+  'n1', 'n5', 'n2', 'n10', 'n1', 'pa', 'n1', 'n2', 'n5', 'n1', 'n2', 'cf',
+  'n1', 'n10', 'n1', 'n5', 'n1', 'ch', 'n1', 'n2', 'n5', 'n1', 'n2', 'cf',
+  'n2', 'n1', 'n10', 'n2', 'n1', 'ct'
+];
 
 export const CT_LABEL = {
   n1: '1', n2: '2', n5: '5', n10: '10',

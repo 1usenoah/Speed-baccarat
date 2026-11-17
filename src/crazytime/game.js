@@ -20,6 +20,11 @@ const RING_LEN = 2 * Math.PI * 52;
 const BET_ZONES = ['n1', 'n2', 'n5', 'n10', 'cf', 'pa', 'ch', 'ct'];
 const MULT = { n1: 1, n2: 2, n5: 5, n10: 10 };
 const SLOT_LABELS = { n1: '1', n2: '2', n5: '5', n10: '10', cf: 'COIN FLIP', pa: 'PACHINKO', ch: 'CASH HUNT', ct: 'CRAZY TIME' };
+/* the Top Slot reels: bet spot on the left, multiplier on the right */
+const SLOT_MULTS = [2, 3, 4, 5, 7, 10, 15, 20, 25, 50];
+const REEL_REPS = 14;
+const REEL_MULT_REPS = 12;
+const CELL_H = 52;
 
 export class CrazyTimeGame {
   constructor(shell) {
@@ -57,17 +62,65 @@ export class CrazyTimeGame {
   }
 
   buildReels() {
-    const a = [], b = [];
-    for (let i = 0; i < 10; i++) {
-      BET_ZONES.forEach((z) => a.push(`<div class="reel-cell ${z.length === 2 ? 'bonus' : ''}">${SLOT_LABELS[z]}</div>`));
+    const a = [];
+    const b = [];
+    for (let r = 0; r < REEL_REPS; r++) {
+      BET_ZONES.forEach((z) => {
+        const bonus = z.length === 2;
+        const cls = bonus ? `reel-cell bonus${z === 'ct' ? ' ct' : ''}` : 'reel-cell';
+        const txt = bonus ? SLOT_LABELS[z].replace(' ', '<br>') : SLOT_LABELS[z];
+        a.push(`<div class="${cls}">${txt}</div>`);
+      });
     }
-    ['2x', '5x', '10x', '15x', '20x', '25x', '30x', '40x', '50x'].forEach((m) => {
-      for (let i = 0; i < 6; i++) b.push(`<div class="reel-cell">${m}</div>`);
-    });
+    for (let r = 0; r < REEL_MULT_REPS; r++) {
+      SLOT_MULTS.forEach((m) => b.push(`<div class="reel-cell mult">${m}x</div>`));
+    }
     this.reelA.innerHTML = a.join('');
     this.reelB.innerHTML = b.join('');
-    this.reelA.style.transition = 'none';
-    this.reelB.style.transition = 'none';
+    this.resetTopSlot();
+  }
+
+  resetTopSlot() {
+    for (const strip of [this.reelA, this.reelB]) {
+      strip.style.transition = 'none';
+      strip.style.transform = 'translateY(0px)';
+    }
+    void this.reelA.offsetHeight;
+    const panel = document.getElementById('topSlot');
+    panel?.classList.remove('match');
+    const badge = document.getElementById('tsWin');
+    if (badge) { badge.classList.remove('show'); badge.textContent = ''; }
+    document.querySelectorAll('#view-crazy .czone.topmatch').forEach((z) => z.classList.remove('topmatch'));
+  }
+
+  /** both drums spin, then land on this round's pair; a match flashes gold */
+  spinTopSlot(type, mult) {
+    const aIdx = Math.max(0, BET_ZONES.indexOf(type));
+    const bIdx = Math.max(0, SLOT_MULTS.indexOf(mult));
+    const aStop = (REEL_REPS - 2) * BET_ZONES.length + aIdx;
+    const bStop = (REEL_MULT_REPS - 2) * SLOT_MULTS.length + bIdx;
+    this.resetTopSlot();
+    this.reelA.style.transition = 'transform 2.35s cubic-bezier(.14,.86,.1,1)';
+    this.reelA.style.transform = `translateY(${-aStop * CELL_H}px)`;
+    setTimeout(() => {
+      this.reelB.style.transition = 'transform 2.85s cubic-bezier(.12,.88,.08,1)';
+      this.reelB.style.transform = `translateY(${-bStop * CELL_H}px)`;
+    }, 260);
+  }
+
+  markTopSlotWin(type, mult) {
+    const panel = document.getElementById('topSlot');
+    const badge = document.getElementById('tsWin');
+    panel?.classList.add('match');
+    if (badge) {
+      badge.textContent = `TOP SLOT ${mult}x!`;
+      badge.classList.add('show');
+    }
+    this.zoneEls[type]?.classList.add('topmatch');
+    setTimeout(() => {
+      panel?.classList.remove('match');
+      document.querySelectorAll('#view-crazy .czone.topmatch').forEach((z) => z.classList.remove('topmatch'));
+    }, 4200);
   }
 
   start() {
@@ -118,6 +171,7 @@ export class CrazyTimeGame {
     this.shell.setBadge('PLACE YOUR BETS', '');
     document.getElementById('ctTimer').classList.remove('hidden', 'urgent');
     this.banner.classList.remove('show');
+    this.resetTopSlot();
     Object.values(this.zoneEls).forEach((z) => z.classList.remove('winner'));
     this.renderHistory(idx);
     if (wallet.balance < 1000 && !this.refillShown) {
@@ -130,9 +184,10 @@ export class CrazyTimeGame {
     const recent = recentCrazy(10, idx);
     const host = document.getElementById('ctHistory');
     if (!host) return;
+    const SHORT = { cf: 'CF', pa: 'PK', ch: 'CH', ct: 'CT' };
     host.innerHTML = recent.reverse().map((r) => {
-      const isBonus = r.segment.length === 2;
-      return `<div class="ct-hist-dot ${isBonus ? 'bonus' : ''}">${isBonus ? r.label.split(' ')[0].slice(0, 2) : r.label}</div>`;
+      const bonus = SHORT[r.segment];
+      return `<div class="ct-hist-dot ${bonus ? 'bonus' : ''} sz-${r.segment}">${bonus || r.label}</div>`;
     }).join('');
   }
 
@@ -227,20 +282,20 @@ export class CrazyTimeGame {
     this.shell.setBadge('SPINNING', 'dealing');
     const d = this.spinData;
 
-    // 3D top slot above the wheel: both drums spin and settle on the round's
+    // Top Slot above the wheel: both drums spin and settle on the round's
     // deterministic pair (left reel = bet spot, right reel = multiplier).
-    this.studio?.spinTopSlot(SLOT_LABELS[d.topSlotA], d.topSlotB);
-    this.studio?.markSlotWin(d.topSlotWin);
+    this.spinTopSlot(d.topSlotA, d.topSlotB);
     topSlotSpin();
-    setTimeout(() => topSlotStop(0), 1250);
+    setTimeout(() => topSlotStop(0), 1900);
     setTimeout(() => {
       topSlotStop(1);
       if (d.topSlotWin) {
         topSlotWin();
+        this.markTopSlotWin(d.topSlotA, d.topSlotB);
         this.banner.textContent = `TOP SLOT MATCH · ${d.topSlotB}x`;
         this.banner.classList.add('show');
       }
-    }, 1950);
+    }, 2900);
 
     wheelRumble(true);
     this.studio?.pullWheel();

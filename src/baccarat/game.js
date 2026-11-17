@@ -400,7 +400,7 @@ export class BaccaratGame {
     this.shell.setBadge('DEALING', 'dealing');
     const steps = this.hand.steps;
     const windowSec = ROUND.baccarat.dealMs / 1000;
-    const speed = Math.max(1.0, (steps.length * 1.15) / windowSec);
+    const speed = Math.max(1.0, (steps.length * 1.42) / windowSec);
     for (const step of steps) {
       if (!this.tableId) return;
       this.table?.focusSlot(step.side, step.index);

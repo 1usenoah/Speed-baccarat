@@ -166,9 +166,15 @@
               <div class="live-tag"><i></i><span>LIVE</span></div>
               <div class="stage-badge" id="ctStageBadge">PLACE YOUR BETS</div>
               <div class="top-slot" id="topSlot">
-                <div class="slot-label">TOP SLOT</div>
-                <div class="reel" id="reelA"><div class="reel-strip"></div></div>
-                <div class="reel" id="reelB"><div class="reel-strip"></div></div>
+                <div class="ts-crest"><span>TOP SLOT</span></div>
+                <div class="ts-bulbs top"></div>
+                <div class="ts-window">
+                  <div class="reel" id="reelA"><div class="reel-strip"></div></div>
+                  <div class="ts-index"><i></i><i></i></div>
+                  <div class="reel" id="reelB"><div class="reel-strip"></div></div>
+                </div>
+                <div class="ts-win" id="tsWin"></div>
+                <div class="ts-bulbs bottom"></div>
               </div>
               <div class="timer ct-timer" id="ctTimer">
                 <svg viewBox="0 0 120 120">
@@ -183,14 +189,68 @@
 
             <div class="bet-panel ct-bet-panel">
               <div class="ct-grid" id="ctGrid">
-                <div class="czone" data-zone="n1"><b>1</b><i>1:1</i><div class="chip-layer" data-chips="n1"></div></div>
-                <div class="czone" data-zone="n2"><b>2</b><i>2:1</i><div class="chip-layer" data-chips="n2"></div></div>
-                <div class="czone" data-zone="n5"><b>5</b><i>5:1</i><div class="chip-layer" data-chips="n5"></div></div>
-                <div class="czone" data-zone="n10"><b>10</b><i>10:1</i><div class="chip-layer" data-chips="n10"></div></div>
-                <div class="czone bonus cf" data-zone="cf"><b>COIN<br />FLIP</b><div class="chip-layer" data-chips="cf"></div></div>
-                <div class="czone bonus pa" data-zone="pa"><b>PACHINKO</b><div class="chip-layer" data-chips="pa"></div></div>
-                <div class="czone bonus ch" data-zone="ch"><b>CASH<br />HUNT</b><div class="chip-layer" data-chips="ch"></div></div>
-                <div class="czone bonus ct" data-zone="ct"><b>CRAZY<br />TIME</b><div class="chip-layer" data-chips="ct"></div></div>
+                <div class="czone cz-num cz-n1" data-zone="n1">
+                  <span class="cz-badge">1</span>
+                  <span class="cz-cap">PAYS 1X</span>
+                  <div class="chip-layer" data-chips="n1"></div>
+                </div>
+                <div class="czone cz-num cz-n2" data-zone="n2">
+                  <span class="cz-badge">2</span>
+                  <span class="cz-cap">PAYS 2X</span>
+                  <div class="chip-layer" data-chips="n2"></div>
+                </div>
+                <div class="czone cz-bonus cz-cf" data-zone="cf">
+                  <svg class="cz-ico" viewBox="0 0 32 32" aria-hidden="true">
+                    <circle cx="12" cy="16" r="8.5" fill="#c8203a" stroke="#ffe6a8" stroke-width="2"/>
+                    <circle cx="21" cy="16" r="7" fill="#2450b8" stroke="#ffe6a8" stroke-width="2"/>
+                    <circle cx="12" cy="16" r="3" fill="#8c0d18" opacity=".55"/>
+                  </svg>
+                  <span class="cz-script">Coin Flip</span>
+                  <span class="cz-cap">BONUS GAME</span>
+                  <div class="chip-layer" data-chips="cf"></div>
+                </div>
+                <div class="czone cz-bonus cz-pa" data-zone="pa">
+                  <svg class="cz-ico" viewBox="0 0 32 32" aria-hidden="true">
+                    <g fill="#ffe6a8">
+                      <circle cx="10" cy="10" r="1.6"/><circle cx="16" cy="10" r="1.6"/><circle cx="22" cy="10" r="1.6"/>
+                      <circle cx="13" cy="15" r="1.6"/><circle cx="19" cy="15" r="1.6"/>
+                      <circle cx="10" cy="20" r="1.6"/><circle cx="16" cy="20" r="1.6"/><circle cx="22" cy="20" r="1.6"/>
+                    </g>
+                    <circle cx="16" cy="26" r="3.4" fill="#ffd76a" stroke="#fff3c9" stroke-width="1"/>
+                  </svg>
+                  <span class="cz-script">Pachinko</span>
+                  <span class="cz-cap">BONUS GAME</span>
+                  <div class="chip-layer" data-chips="pa"></div>
+                </div>
+                <div class="czone cz-num cz-n5" data-zone="n5">
+                  <span class="cz-badge">5</span>
+                  <span class="cz-cap">PAYS 5X</span>
+                  <div class="chip-layer" data-chips="n5"></div>
+                </div>
+                <div class="czone cz-num cz-n10" data-zone="n10">
+                  <span class="cz-badge">10</span>
+                  <span class="cz-cap">PAYS 10X</span>
+                  <div class="chip-layer" data-chips="n10"></div>
+                </div>
+                <div class="czone cz-bonus cz-ch" data-zone="ch">
+                  <svg class="cz-ico" viewBox="0 0 32 32" aria-hidden="true">
+                    <circle cx="16" cy="16" r="11" fill="#f4e4bc"/>
+                    <circle cx="16" cy="16" r="8.4" fill="#c8203a"/>
+                    <circle cx="16" cy="16" r="5.6" fill="#f4e4bc"/>
+                    <circle cx="16" cy="16" r="2.8" fill="#c8203a"/>
+                  </svg>
+                  <span class="cz-script">Cash Hunt</span>
+                  <span class="cz-cap">BONUS GAME</span>
+                  <div class="chip-layer" data-chips="ch"></div>
+                </div>
+                <div class="czone cz-bonus cz-ct" data-zone="ct">
+                  <svg class="cz-ico" viewBox="0 0 32 32" aria-hidden="true">
+                    <path d="M16 3l3.2 6.6 7.3 1-5.3 5.1 1.3 7.2L16 19.5 9.5 22.9l1.3-7.2L5.5 10.6l7.3-1z" fill="#ffd76a" stroke="#8a1a2a" stroke-width="1"/>
+                  </svg>
+                  <span class="cz-script">Crazy Time</span>
+                  <span class="cz-cap">BONUS GAME</span>
+                  <div class="chip-layer" data-chips="ct"></div>
+                </div>
               </div>
               <div class="controls">
                 <div class="chip-tray" id="ctChipTray"></div>
