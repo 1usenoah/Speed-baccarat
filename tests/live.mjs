@@ -27,12 +27,12 @@ async function open(viewport, mobile) {
 
 async function signIn(page) {
   await page.waitForSelector('#authUser', { timeout: 60000 });
-  await page.fill('#authUser', 'noah2026');
-  await page.fill('#authPass', 'cwoo02a');
+  await page.fill('#authUser', 'v2shot7066883');
+  await page.fill('#authPass', 'pass1234');
   await page.click('.auth-submit');
   try {
     await page.waitForSelector('#authUser', { state: 'detached', timeout: 15000 });
-    return 'login noah2026';
+    return 'login v2shot7066883';
   } catch (e) {
     const alt = 'v2shot' + String(Date.now()).slice(-7);
     await page.click('.auth-tabs button[data-mode="signup"]');
