@@ -29,12 +29,12 @@ export const LAYOUT = {
     P: [
       { x: -0.52, z: -0.36, rot: 0 },
       { x: -0.24, z: -0.36, rot: 0 },
-      { x: -0.40, z: -0.02, rot: Math.PI / 2 }
+      { x: -0.38, z: -0.16, rot: Math.PI / 2 }
     ],
     B: [
       { x: 0.24, z: -0.36, rot: 0 },
       { x: 0.52, z: -0.36, rot: 0 },
-      { x: 0.40, z: -0.02, rot: Math.PI / 2 }
+      { x: 0.38, z: -0.16, rot: Math.PI / 2 }
     ]
   }
 };
@@ -446,16 +446,16 @@ export class BaccaratTable {
     // shoulders sit in the upper third, close enough that the cards read.
     if (aspect > 1.55) {
       this.camera.fov = 41;
-      this.camera.position.set(0, 2.34, 2.66);
-      this.camTarget = new THREE.Vector3(0, 0.22, -0.06);
+      this.camera.position.set(0, 2.40, 2.86);
+      this.camTarget = new THREE.Vector3(0, 0.10, -0.46);
     } else if (aspect > 1.1) {
       this.camera.fov = 45;
-      this.camera.position.set(0, 2.36, 2.82);
-      this.camTarget = new THREE.Vector3(0, 0.24, -0.06);
+      this.camera.position.set(0, 2.42, 3.00);
+      this.camTarget = new THREE.Vector3(0, 0.12, -0.46);
     } else {
       this.camera.fov = 54;
-      this.camera.position.set(0, 2.30, 2.70);
-      this.camTarget = new THREE.Vector3(0, 0.16, -0.02);
+      this.camera.position.set(0, 2.36, 2.90);
+      this.camTarget = new THREE.Vector3(0, 0.06, -0.44);
     }
     this.camBase = { pos: this.camera.position.clone(), target: this.camTarget.clone() };
     if (!this._camPos) {
