@@ -186,7 +186,7 @@ export class CrazyStudio {
     group.add(face);
 
     // 54 label plates riding on the face (crisp text instead of a painted strip)
-    const plateH = R * 0.40;
+    const plateH = R * 0.34;
     const plateW = plateH * (128 / 512);
     for (let i = 0; i < CT_WHEEL.length; i++) {
       const mid = -Math.PI / 2 + i * segA;

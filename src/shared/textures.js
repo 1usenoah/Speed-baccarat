@@ -662,7 +662,7 @@ export function ctSegmentPlate(type, label) {
   g.shadowBlur = 12;
 
   if (isNumber) {
-    g.font = `800 ${label.length > 1 ? 128 : 150}px "DejaVu Sans", Arial, sans-serif`;
+    g.font = `800 ${label.length > 1 ? 104 : 124}px "DejaVu Sans", Arial, sans-serif`;
     g.fillText(label, W / 2, H * 0.50);
   } else {
     // icon near the rim end
