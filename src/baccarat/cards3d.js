@@ -276,7 +276,7 @@ export function getBackTexture() {
 
 export const CARD_DIMS = { w: CARD_W, h: CARD_H };
 
-const edgeMat = new THREE.MeshStandardMaterial({ color: 0xf2eee6, roughness: 0.72 });
+const edgeMat = new THREE.MeshStandardMaterial({ color: 0xd8d3c6, roughness: 0.8 });
 
 /** A single glossy card, lying flat (face up, reading toward +Z/camera). */
 export function createCard(rank, suit, { backTint = null } = {}) {
@@ -289,7 +289,8 @@ export function createCard(rank, suit, { backTint = null } = {}) {
 
   const faceMat = new THREE.MeshPhysicalMaterial({
     map: getFaceTexture(rank, suit),
-    roughness: 0.46,
+    color: 0xded9cd,
+    roughness: 0.55,
     metalness: 0.0,
     clearcoat: 0.45,
     clearcoatRoughness: 0.30,

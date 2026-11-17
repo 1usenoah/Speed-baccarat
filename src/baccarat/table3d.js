@@ -66,6 +66,14 @@ export class BaccaratTable {
     this.camera = new THREE.PerspectiveCamera(38, 1.7, 0.05, 60);
     this.lights = addStudioLights(scene, { intensity: 1 });
 
+    // even wash over the felt so the layout never falls into shadow
+    const feltWash = new THREE.PointLight(0xfff0d8, 2.6, 7.5, 2);
+    feltWash.position.set(0.3, 1.65, 0.35);
+    scene.add(feltWash);
+    const feltWash2 = new THREE.PointLight(0xffe6c2, 1.3, 6.5, 2);
+    feltWash2.position.set(-0.6, 1.35, -0.5);
+    scene.add(feltWash2);
+
     this._buildRoom();
     this._buildTable();
     this._buildShoe();
