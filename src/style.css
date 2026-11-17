@@ -1647,3 +1647,7 @@ b, strong { font-weight: 700; }
   :root { --cell: 15px; --dcell: 9px; }
   .zone { min-height: 56px; }
 }
+
+
+/* the Top Slot is rendered in 3D above the wheel now */
+.top-slot { display: none !important; }

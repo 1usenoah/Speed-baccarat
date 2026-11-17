@@ -227,28 +227,24 @@ export class CrazyTimeGame {
     this.shell.setBadge('SPINNING', 'dealing');
     const d = this.spinData;
 
-    // reels
-    this.reelA.style.transition = 'transform 1.6s cubic-bezier(.2,.8,.2,1)';
-    this.reelB.style.transition = 'transform 1.9s cubic-bezier(.2,.8,.2,1)';
-    const aIdx = BET_ZONES.indexOf(d.topSlotA);
-    const bIdx = [2, 5, 10, 15, 20, 25, 30, 40, 50].indexOf(d.topSlotB);
-    this.reelA.style.transform = `translateY(-${(aIdx + 70) * 40}px)`;
-    this.reelB.style.transform = `translateY(-${(bIdx + 40) * 40}px)`;
+    // 3D top slot above the wheel: both drums spin and settle on the round's
+    // deterministic pair (left reel = bet spot, right reel = multiplier).
+    this.studio?.spinTopSlot(SLOT_LABELS[d.topSlotA], d.topSlotB);
+    this.studio?.markSlotWin(d.topSlotWin);
     topSlotSpin();
-    setTimeout(() => topSlotStop(0), 900);
+    setTimeout(() => topSlotStop(0), 1250);
     setTimeout(() => {
       topSlotStop(1);
       if (d.topSlotWin) {
         topSlotWin();
-        document.getElementById('reelA')?.classList.add('reel-win');
-        document.getElementById('reelB')?.classList.add('reel-win');
         this.banner.textContent = `TOP SLOT MATCH · ${d.topSlotB}x`;
         this.banner.classList.add('show');
       }
-    }, 1500);
+    }, 1950);
 
     wheelRumble(true);
-    await sleep(400);
+    this.studio?.pullWheel();
+    await sleep(420);
     await this.studio.spinTo(d.stop, { duration: ROUND.crazy.spinMs - 900 });
     wheelRumble(false);
     this.spinning = false;

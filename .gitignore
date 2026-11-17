@@ -4,3 +4,4 @@ tests/build.log
 tests/verify.log
 *.log
 .DS_Store
+*_raw.png

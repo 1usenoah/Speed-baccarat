@@ -1,133 +1,43 @@
 /* =========================================================================
-   table3d.js — live baccarat studio: emerald felt with gold inlay, padded
-   wood rail, acrylic shoe, discard holder, chip rack, and the dealer who
-   deals real cards (reach → lift → flip → place → sweep).
+   baccarat/table3d.js — a live baccarat studio shot on a broadcast camera.
+
+   Set: marble pilasters, a gold backlit feature wall, a velvet felt with the
+   full printed layout, an acrylic shoe, chip rack and discard well.
+   Cast: a photoreal dealer cutout (AI-generated portrait) who breathes,
+   shifts his/her weight and leans in on every deal.
+   Action: cards fly out of the shoe, are peeled off the felt corner-first
+   (squeeze) and flipped face-up in full 3D.
    ========================================================================= */
 import * as THREE from 'three';
-import { makeRenderer, makeEnv, addStudioLights, backdropTexture, woodTexture } from '../shared/studio.js';
-import { Dealer } from './dealer.js';
+import { makeRenderer, makeEnv, addStudioLights, makeComposer, resizeTo, easeOutCubic, easeInOutCubic } from '../shared/studio.js';
+import { PhotoPerson, contactShadow } from '../shared/billboard.js';
 import { createCard, chipTexture } from './cards3d.js';
+import { feltTexture, marbleTexture, marbleWallTexture, softGlow } from '../shared/textures.js';
 
 const lerp = (a, b, t) => a + (b - a) * t;
-function shade(hex, amt) {
-  const c = hex.replace('#', '');
-  const n = parseInt(c.length === 3 ? c.split('').map((x) => x + x).join('') : c, 16);
-  const r = Math.max(0, Math.min(255, Math.round(((n >> 16) & 255) * (1 + amt))));
-  const g = Math.max(0, Math.min(255, Math.round(((n >> 8) & 255) * (1 + amt))));
-  const b = Math.max(0, Math.min(255, Math.round((n & 255) * (1 + amt))));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
-const easeOut = (t) => 1 - Math.pow(1 - t, 3);
-const easeInOut = (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2);
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
 export const LAYOUT = {
   feltW: 2.2,
   feltZFar: -0.72,
   feltZNear: 0.62,
-  dealerZ: -0.95,
-  dealerY: 0.06,
-  shoe: { x: 0.55, z: -0.66 },
-  discard: { x: -0.55, z: -0.66 },
+  dealerZ: -1.38,
+  dealerY: -0.42,
+  shoe: { x: 0.62, z: -0.66 },
+  discard: { x: -0.62, z: -0.66 },
   slots: {
     P: [
-      { x: -0.365, z: -0.46, rot: 0 },
-      { x: -0.235, z: -0.46, rot: 0 },
-      { x: -0.3, z: -0.22, rot: Math.PI / 2 }
+      { x: -0.37, z: -0.44, rot: 0 },
+      { x: -0.235, z: -0.44, rot: 0 },
+      { x: -0.305, z: -0.18, rot: Math.PI / 2 }
     ],
     B: [
-      { x: 0.235, z: -0.46, rot: 0 },
-      { x: 0.365, z: -0.46, rot: 0 },
-      { x: 0.3, z: -0.22, rot: Math.PI / 2 }
+      { x: 0.235, z: -0.44, rot: 0 },
+      { x: 0.37, z: -0.44, rot: 0 },
+      { x: 0.305, z: -0.18, rot: Math.PI / 2 }
     ]
   }
 };
-
-/* ---------------------------------------------------------- felt artwork */
-function feltTexture(tint) {
-  const deep = tint ? tint : '#062a20';
-  const W = 2048;
-  const spanZ = LAYOUT.feltZNear - LAYOUT.feltZFar;
-  const H = Math.round((W / LAYOUT.feltW) * spanZ);
-  const c = document.createElement('canvas');
-  c.width = W;
-  c.height = H;
-  const g = c.getContext('2d');
-  const u = W / LAYOUT.feltW;
-  const px = (x) => (x + LAYOUT.feltW / 2) * u;
-  const pz = (z) => (z - LAYOUT.feltZFar) * u;
-
-  const grd = g.createRadialGradient(px(0), pz(-0.3), 30, px(0), pz(-0.2), W * 0.58);
-  grd.addColorStop(0, deep);
-  grd.addColorStop(0.42, shade(deep, -0.35));
-  grd.addColorStop(1, shade(deep, -0.62));
-  g.fillStyle = grd;
-  g.fillRect(0, 0, W, H);
-
-  for (let i = 0; i < 34000; i++) {
-    const x = Math.random() * W;
-    const y = Math.random() * H;
-    g.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.018)' : 'rgba(0,0,0,0.055)';
-    g.fillRect(x, y, 2, 1);
-  }
-
-  // outer double gold border
-  g.strokeStyle = 'rgba(206,170,98,0.5)';
-  g.lineWidth = 4;
-  g.strokeRect(px(-1.02), pz(-0.66), 2.04 * u, 1.2 * u);
-  g.lineWidth = 1.6;
-  g.strokeRect(px(-0.985), pz(-0.625), 1.97 * u, 1.13 * u);
-
-  // central arc ornament
-  g.strokeStyle = 'rgba(206,170,98,0.3)';
-  g.lineWidth = 3;
-  g.beginPath();
-  g.arc(px(0), pz(-0.36), 0.62 * u, Math.PI * 0.05, Math.PI * 0.95, false);
-  g.stroke();
-  g.lineWidth = 1.4;
-  g.beginPath();
-  g.arc(px(0), pz(-0.36), 0.78 * u, Math.PI * 0.1, Math.PI * 0.9, false);
-  g.stroke();
-
-  // card frames
-  const frame = (cx, label, color) => {
-    const w = 0.34 * u;
-    const h = 0.46 * u;
-    const x = px(cx) - w / 2;
-    const y = pz(-0.56);
-    g.save();
-    g.strokeStyle = color;
-    g.lineWidth = 3;
-    g.beginPath();
-    g.roundRect(x, y, w, h, 10);
-    g.stroke();
-    g.globalAlpha = 0.05;
-    g.fillStyle = color;
-    g.beginPath();
-    g.roundRect(x + 6, y + 6, w - 12, h - 12, 8);
-    g.fill();
-    g.restore();
-    g.fillStyle = 'rgba(226,198,142,0.8)';
-    g.font = `600 ${Math.round(u * 0.048)}px "DejaVu Sans", Arial, sans-serif`;
-    g.textAlign = 'center';
-    g.fillText(label, px(cx), pz(-0.585));
-  };
-  frame(-0.3, 'PLAYER', 'rgba(120,165,235,0.5)');
-  frame(0.3, 'BANKER', 'rgba(225,115,125,0.5)');
-
-  // dealer side line + shoe/discard marks
-  g.strokeStyle = 'rgba(206,170,98,0.22)';
-  g.lineWidth = 2;
-  g.beginPath();
-  g.moveTo(px(-0.95), pz(-0.68));
-  g.lineTo(px(0.95), pz(-0.68));
-  g.stroke();
-
-  const tex = new THREE.CanvasTexture(c);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 8;
-  return tex;
-}
 
 export class BaccaratTable {
   constructor(canvas, { profile = null, tableCfg = null } = {}) {
@@ -136,327 +46,363 @@ export class BaccaratTable {
     this.tableCfg = tableCfg || {};
     this.phase = 'betting';
     this.cards = [];
-    this.carried = [];
     this.lastT = performance.now();
-    this.autoIdle = true;
+    this.running = true;
     this.gazeTimer = 0;
-    this.pendingHighlights = [];
     this.init();
   }
 
+  /* ------------------------------------------------------------- boot */
   init() {
-    const renderer = makeRenderer(this.canvas, { exposure: 1.12 });
+    const renderer = makeRenderer(this.canvas, { exposure: 1.0 });
     this.renderer = renderer;
     const scene = new THREE.Scene();
-    scene.background = backdropTexture('#0a2620', '#02060a');
     this.scene = scene;
 
-    const { env } = makeEnv(renderer, 0.55);
+    const { env } = makeEnv(renderer, { warm: 0xffd2a0, cool: 0x8fd8ff, rim: 0xffb0c0 });
     scene.environment = env;
-    if ('environmentIntensity' in scene) scene.environmentIntensity = 0.34;
+    if ('environmentIntensity' in scene) scene.environmentIntensity = 0.30;
 
-    this.camera = new THREE.PerspectiveCamera(42, 1.7, 0.03, 40);
-    this.camTarget = new THREE.Vector3(0, -0.18, -0.42);
-    this.camDir = new THREE.Vector3(0, 0.42, 1.0).normalize();
-
-    this.lights = addStudioLights(scene, { intensity: 1.08 });
+    this.camera = new THREE.PerspectiveCamera(38, 1.7, 0.05, 60);
+    this.lights = addStudioLights(scene, { intensity: 1 });
 
     this._buildRoom();
     this._buildTable();
     this._buildShoe();
     this._buildDiscard();
     this._buildChipRack();
+    this._buildDealer(this.profile);
 
-    this.dealer = this._makeDealer(this.profile);
-    scene.add(this.dealer.root);
-    this.dealer.look(new THREE.Vector3(0, 0.9, 2.2), 1);
+    const { composer, bloom } = makeComposer(renderer, scene, this.camera, {
+      strength: 0.30, radius: 0.6, threshold: 0.92
+    });
+    this.composer = composer;
+    this.bloom = bloom;
 
     this.onResize();
-    window.addEventListener('resize', () => this.onResize());
+    this._onResize = () => this.onResize();
+    window.addEventListener('resize', this._onResize);
 
-    this.running = true;
     this._loop = this._loop.bind(this);
     requestAnimationFrame(this._loop);
   }
 
-  _makeDealer(profile) {
-    const p = profile || {};
-    const d = new Dealer({
-      outfit: 'tuxedo',
-      name: p.name || 'SOFIA',
-      skin: p.skin,
-      hair: p.hair,
-      hairStyle: p.hairStyle,
-      suit: p.suit,
-      accent: p.accent,
-      lip: p.lip
-    });
-    d.root.position.set(0, LAYOUT.dealerY, LAYOUT.dealerZ);
-    return d;
-  }
-
-  /** swap the person on duty without rebuilding the room */
-  setDealer(profile, { animate = true } = {}) {
-    this.profile = profile;
-    const old = this.dealer;
-    this.dealer = this._makeDealer(profile);
-    this.dealer.root.position.set(0, LAYOUT.dealerY - (animate ? 0.35 : 0), LAYOUT.dealerZ);
-    this.scene.add(this.dealer.root);
-    if (profile) this.dealer.look(new THREE.Vector3(0, 0.9, 2.2), 1);
-    if (old) {
-      this.scene.remove(old.root);
-      old.root.traverse?.((o) => {
-        if (o.geometry) o.geometry.dispose();
-      });
-    }
-    if (animate) {
-      const t0 = performance.now();
-      const step = (now) => {
-        const t = Math.min(1, (now - t0) / 650);
-        const e = easeOut(t);
-        this.dealer.root.position.y = LAYOUT.dealerY - 0.35 * (1 - e);
-        if (t < 1) requestAnimationFrame(step);
-      };
-      requestAnimationFrame(step);
-    }
-  }
-
+  /* ------------------------------------------------------------ room */
   _buildRoom() {
     const g = new THREE.Group();
-    // curved studio backdrop
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x0a1a17, roughness: 0.98, side: THREE.BackSide, envMapIntensity: 0.2 });
-    const wall = new THREE.Mesh(new THREE.CylinderGeometry(5.0, 5.0, 6.0, 40, 1, true, -1.35, 2.7), wallMat);
-    wall.position.set(0, 1.6, -0.2);
-    wall.receiveShadow = true;
+
+    // feature wall — dark fluted marble with a warm backlight
+    const wallMat = new THREE.MeshStandardMaterial({
+      map: marbleWallTexture(), color: 0x5c5c5c, roughness: 0.55, metalness: 0.25, envMapIntensity: 0.6
+    });
+    const wall = new THREE.Mesh(new THREE.PlaneGeometry(9, 5.2), wallMat);
+    wall.position.set(0, 1.5, -3.7);
     g.add(wall);
 
-    const gold = new THREE.MeshStandardMaterial({ color: 0xc9a55d, metalness: 0.9, roughness: 0.34 });
-    // vertical light panels behind the dealer
-    for (const x of [-1.15, 1.15]) {
-      const panel = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.32, 2.3),
-        new THREE.MeshBasicMaterial({ color: 0x27574a, transparent: true, opacity: 0.4 })
+    // soft warm pool of light on the wall behind the dealer
+    const pool = new THREE.Mesh(
+      new THREE.PlaneGeometry(6.4, 4.8),
+      new THREE.MeshBasicMaterial({
+        map: softGlow('#c08a44'), transparent: true, opacity: 0.5,
+        blending: THREE.AdditiveBlending, depthWrite: false
+      })
+    );
+    pool.position.set(0, 1.15, -3.66);
+    g.add(pool);
+
+    const gold = new THREE.MeshStandardMaterial({ color: 0xd9b978, metalness: 0.96, roughness: 0.24, envMapIntensity: 1.2 });
+
+    // marble pilasters
+    const marble = new THREE.MeshStandardMaterial({
+      map: marbleTexture('#efece3', '#8b8478'), color: 0x7d786e, roughness: 0.3, metalness: 0.05, envMapIntensity: 0.9
+    });
+    for (const x of [-2.95, 2.95]) {
+      const col = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.17, 3.4, 28), marble);
+      col.position.set(x, 1.1, -2.75);
+      col.castShadow = true;
+      g.add(col);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.10, 0.52), marble);
+      cap.position.set(x, 2.85, -2.75);
+      g.add(cap);
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.12, 0.56), marble);
+      base.position.set(x, -0.55, -2.75);
+      g.add(base);
+      // gold fillet rings
+      for (const y of [2.72, -0.46]) {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.012, 8, 28), gold);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.set(x, y, -2.75);
+        g.add(ring);
+      }
+    }
+
+    // gold arch above the dealer
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(1.42, 0.028, 10, 60, Math.PI), gold);
+    arch.position.set(0, 1.62, -3.4);
+    g.add(arch);
+    const arch2 = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.014, 8, 60, Math.PI), gold);
+    arch2.position.set(0, 1.62, -3.42);
+    g.add(arch2);
+
+    // slim LED light bars framing the feature wall
+    for (const x of [-1.52, 1.52]) {
+      const blade = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.035, 2.3),
+        new THREE.MeshBasicMaterial({ color: 0xfff0d2 })
       );
-      panel.position.set(x, 1.35, -1.62);
-      g.add(panel);
-      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.02, 2.3, 0.02), gold);
-      strip.position.set(x + (x > 0 ? 0.17 : -0.17), 1.35, -1.6);
+      blade.position.set(x, 1.05, -3.58);
+      g.add(blade);
+      const bloom = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.16, 2.5),
+        new THREE.MeshBasicMaterial({ color: 0xffc98a, transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending, depthWrite: false })
+      );
+      bloom.position.set(x, 1.05, -3.59);
+      g.add(bloom);
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.022, 2.4, 0.02), gold);
+      strip.position.set(x + (x > 0 ? 0.03 : -0.03), 1.05, -3.57);
       g.add(strip);
     }
-    // horizontal gold rail
-    const rail = new THREE.Mesh(new THREE.BoxGeometry(2.9, 0.035, 0.05), gold);
-    rail.position.set(0, 2.5, -1.62);
-    g.add(rail);
-    const rail2 = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.02, 0.05), gold);
-    rail2.position.set(0, 0.32, -1.66);
-    g.add(rail2);
 
-    // hanging lamp above the table
-    const lampShade = new THREE.Mesh(
-      new THREE.ConeGeometry(0.5, 0.28, 28, 1, true),
-      new THREE.MeshStandardMaterial({ color: 0x1a1c1e, metalness: 0.6, roughness: 0.4, side: THREE.DoubleSide })
-    );
-    lampShade.position.set(0, 2.42, -0.35);
-    g.add(lampShade);
-    const bulb = new THREE.Mesh(new THREE.SphereGeometry(0.1, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfff1d4 }));
-    bulb.position.set(0, 2.3, -0.35);
-    g.add(bulb);
-
+    // ceiling + floor
     const ceil = new THREE.Mesh(
-      new THREE.PlaneGeometry(9, 7),
-      new THREE.MeshStandardMaterial({ color: 0x0a1210, roughness: 1, side: THREE.DoubleSide })
+      new THREE.PlaneGeometry(12, 10),
+      new THREE.MeshStandardMaterial({ color: 0x07090c, roughness: 1 })
     );
     ceil.rotation.x = Math.PI / 2;
-    ceil.position.set(0, 3.1, -1.2);
+    ceil.position.set(0, 3.5, -1.2);
     g.add(ceil);
 
     const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(14, 14),
-      new THREE.MeshStandardMaterial({ color: 0x030806, roughness: 1, metalness: 0 })
+      new THREE.PlaneGeometry(16, 16),
+      new THREE.MeshStandardMaterial({ color: 0x05070a, roughness: 0.35, metalness: 0.5, envMapIntensity: 0.4 })
     );
     floor.rotation.x = -Math.PI / 2;
-    floor.position.set(0, -0.68, -1.0);
+    floor.position.set(0, -0.7, -0.6);
     floor.receiveShadow = true;
     g.add(floor);
+    this.floorY = -0.7;
 
-    const backPanel = new THREE.Mesh(
-      new THREE.BoxGeometry(3.6, 1.6, 0.06),
-      new THREE.MeshStandardMaterial({ color: 0x04100c, roughness: 0.98 })
+    // hanging lamp above the table — a soft warm practical
+    const shade = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.30, 0.62, 0.26, 40, 1, true),
+      new THREE.MeshStandardMaterial({ color: 0x2a2118, metalness: 0.85, roughness: 0.35, side: THREE.DoubleSide })
     );
-    backPanel.position.set(0, -0.55, -1.06);
-    g.add(backPanel);
+    shade.position.set(0, 2.62, -0.35);
+    g.add(shade);
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.09, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0xfff2d8 })
+    );
+    bulb.position.set(0, 2.52, -0.35);
+    g.add(bulb);
 
     this.scene.add(g);
+    this.room = g;
   }
 
+  /* ----------------------------------------------------------- table */
   _buildTable() {
     const g = new THREE.Group();
-    const w = LAYOUT.feltW + 0.36;
-    const d = LAYOUT.feltZNear - LAYOUT.feltZFar + 0.36;
+    const w = LAYOUT.feltW + 0.34;
+    const d = LAYOUT.feltZNear - LAYOUT.feltZFar + 0.34;
     const cz = (LAYOUT.feltZFar + LAYOUT.feltZNear) / 2;
 
-    const wood = woodTexture('#2e1a10', '#6b4426');
-    const woodMat = new THREE.MeshPhysicalMaterial({
-      map: wood, color: 0x2a170d, roughness: 0.62, metalness: 0.08,
-      clearcoat: 0.35, clearcoatRoughness: 0.45, envMapIntensity: 0.4
+    // padded leather rail — rounded, not a box
+    const railMat = new THREE.MeshPhysicalMaterial({
+      color: 0x0a0d12, roughness: 0.55, metalness: 0.05,
+      clearcoat: 0.4, clearcoatRoughness: 0.5, sheen: 0.5, sheenColor: new THREE.Color(0x2a3038)
     });
+    const railH = 0.085;
+    const railGeoLong = new THREE.CapsuleGeometry(railH / 2, w, 8, 16);
+    for (const z of [LAYOUT.feltZFar - 0.19, LAYOUT.feltZNear + 0.19]) {
+      const rail = new THREE.Mesh(railGeoLong, railMat);
+      rail.rotation.z = Math.PI / 2;
+      rail.position.set(0, railH / 2 - 0.01, z);
+      rail.castShadow = true;
+      rail.receiveShadow = true;
+      g.add(rail);
+    }
+    void d;
+    for (const x of [-(LAYOUT.feltW / 2 + 0.19), LAYOUT.feltW / 2 + 0.19]) {
+      const rail = new THREE.Mesh(new THREE.CapsuleGeometry(railH / 2, d, 8, 16), railMat);
+      rail.rotation.x = Math.PI / 2;
+      rail.position.set(x, railH / 2 - 0.01, cz);
+      rail.castShadow = true;
+      g.add(rail);
+    }
 
-    const body = new THREE.Mesh(new THREE.BoxGeometry(w, 0.62, d), woodMat);
-    body.position.set(0, -0.33, cz);
+    // gold piping
+    const gold = new THREE.MeshStandardMaterial({ color: 0xcbab6a, metalness: 0.97, roughness: 0.22 });
+    for (const z of [LAYOUT.feltZFar - 0.19, LAYOUT.feltZNear + 0.19]) {
+      const pipe = new THREE.Mesh(new THREE.TorusGeometry(0.001, 0.006, 6, 4), gold);
+      void pipe;
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, 0.012, 0.012), gold);
+      bar.position.set(0, railH - 0.012, z + (z > 0 ? 0.03 : -0.03));
+      g.add(bar);
+    }
+
+    // table body
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(w, 0.66, d),
+      new THREE.MeshPhysicalMaterial({ color: 0x120f14, roughness: 0.42, metalness: 0.2, clearcoat: 0.5, clearcoatRoughness: 0.4 })
+    );
+    body.position.set(0, -0.345, cz);
     body.castShadow = true;
     body.receiveShadow = true;
     g.add(body);
 
-    const leather = new THREE.MeshStandardMaterial({ color: 0x050908, roughness: 0.98, envMapIntensity: 0.2 });
-    const apron = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, 0.42, 0.05), leather);
-    apron.position.set(0, -0.3, LAYOUT.feltZNear + 0.185);
-    g.add(apron);
-    const apronFar = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, 0.5, 0.05), leather);
-    apronFar.position.set(0, -0.34, LAYOUT.feltZFar - 0.185);
-    g.add(apronFar);
-
-    // padded rail
-    const railMat = new THREE.MeshStandardMaterial({ color: 0x05090a, roughness: 0.92, metalness: 0.0, envMapIntensity: 0.25 });
-    const rh = 0.05;
-    const specs = [
-      { p: [0, rh / 2, LAYOUT.feltZFar - 0.1], s: [w, rh, 0.2] },
-      { p: [0, rh / 2, LAYOUT.feltZNear + 0.1], s: [w, rh, 0.2] },
-      { p: [-(LAYOUT.feltW / 2 + 0.1), rh / 2, cz], s: [0.2, rh, d] },
-      { p: [LAYOUT.feltW / 2 + 0.1, rh / 2, cz], s: [0.2, rh, d] }
-    ];
-    specs.forEach(({ p, s }) => {
-      const r = new THREE.Mesh(new THREE.BoxGeometry(s[0], s[1], s[2]), railMat);
-      r.position.set(...p);
-      r.castShadow = true;
-      r.receiveShadow = true;
-      g.add(r);
+    // felt
+    const feltMat = new THREE.MeshPhysicalMaterial({
+      map: feltTexture({
+        tint: this.tableCfg.felt || '#083a2c',
+        label: this.tableCfg.name || 'SPEED BACCARAT',
+        accent: this.tableCfg.accent || '#1f9c63',
+        limits: this.tableCfg.limits || '1K – 500K'
+      }),
+      roughness: 0.94,
+      metalness: 0.0,
+      sheen: 0.22,
+      sheenColor: new THREE.Color(0x1d4c3c),
+      sheenRoughness: 1,
+      envMapIntensity: 0.14
     });
-
-    // gold piping on the rail
-    const gold = new THREE.MeshStandardMaterial({ color: 0xc9a55d, metalness: 0.92, roughness: 0.28 });
-    const pipe = new THREE.Mesh(new THREE.BoxGeometry(w - 0.02, 0.008, 0.012), gold);
-    pipe.position.set(0, rh - 0.004, LAYOUT.feltZNear + 0.19);
-    g.add(pipe);
-
-    const felt = new THREE.Mesh(
-      new THREE.PlaneGeometry(LAYOUT.feltW, LAYOUT.feltZNear - LAYOUT.feltZFar),
-      new THREE.MeshStandardMaterial({ map: feltTexture(this.tableCfg.felt), roughness: 0.97, metalness: 0 })
-    );
+    const felt = new THREE.Mesh(new THREE.PlaneGeometry(LAYOUT.feltW, LAYOUT.feltZNear - LAYOUT.feltZFar, 1, 1), feltMat);
     felt.rotation.x = -Math.PI / 2;
-    felt.position.set(0, 0.002, cz);
+    felt.position.set(0, 0.001, cz);
     felt.receiveShadow = true;
     g.add(felt);
+
+    // gold inlay line at the dealer edge
+    const inlay = new THREE.Mesh(new THREE.BoxGeometry(LAYOUT.feltW, 0.004, 0.012), gold);
+    inlay.position.set(0, 0.004, LAYOUT.feltZFar + 0.02);
+    g.add(inlay);
 
     this.scene.add(g);
     this.tableGroup = g;
   }
 
+  /* ----------------------------------------------------------- props */
   _buildShoe() {
     const g = new THREE.Group();
     const { x, z } = LAYOUT.shoe;
     g.position.set(x, 0, z);
-    g.rotation.y = -0.3;
+    g.rotation.y = -0.36;
 
-    // NOTE: no `transmission` — a full transmissive pass costs a second
-    // scene render per frame and is not worth it for one small card shoe.
     const acrylic = new THREE.MeshPhysicalMaterial({
-      color: 0xdff8ee, metalness: 0.1, roughness: 0.06,
-      transparent: true, opacity: 0.26, depthWrite: false,
-      clearcoat: 1, clearcoatRoughness: 0.04,
-      envMapIntensity: 1.8, side: THREE.DoubleSide
+      color: 0xe6fff6, metalness: 0.05, roughness: 0.03,
+      transparent: true, opacity: 0.20, depthWrite: false,
+      clearcoat: 1, clearcoatRoughness: 0.02,
+      envMapIntensity: 2.4, side: THREE.DoubleSide
     });
-    const gold = new THREE.MeshStandardMaterial({ color: 0xd8b36a, metalness: 0.95, roughness: 0.22 });
+    const gold = new THREE.MeshStandardMaterial({ color: 0xe0bd76, metalness: 0.97, roughness: 0.2, envMapIntensity: 1.3 });
+    const chrome = new THREE.MeshStandardMaterial({ color: 0xcfd6de, metalness: 1, roughness: 0.18, envMapIntensity: 1.4 });
 
-    const W = 0.2, H = 0.13, D = 0.33;
+    const W = 0.21, H = 0.15, D = 0.34;
+
+    // card stack inside
     const c = document.createElement('canvas');
-    c.width = 64; c.height = 256;
+    c.width = 128;
+    c.height = 512;
     const gg = c.getContext('2d');
-    gg.fillStyle = '#f4f0e6';
-    gg.fillRect(0, 0, 64, 256);
-    for (let i = 0; i < 256; i += 3) {
-      gg.fillStyle = i % 6 === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(170,164,152,0.5)';
-      gg.fillRect(0, i, 64, 1.4);
+    gg.fillStyle = '#f5f1e6';
+    gg.fillRect(0, 0, 128, 512);
+    for (let i = 0; i < 512; i += 3) {
+      gg.fillStyle = i % 6 === 0 ? 'rgba(255,255,255,0.95)' : 'rgba(165,159,146,0.55)';
+      gg.fillRect(0, i, 128, 1.5);
     }
     const stackTex = new THREE.CanvasTexture(c);
     stackTex.colorSpace = THREE.SRGBColorSpace;
 
     const stack = new THREE.Mesh(
-      new THREE.BoxGeometry(W - 0.035, H * 0.8, D - 0.07),
-      new THREE.MeshStandardMaterial({ map: stackTex, roughness: 0.72 })
+      new THREE.BoxGeometry(W - 0.045, H * 0.78, D - 0.08),
+      new THREE.MeshStandardMaterial({ map: stackTex, roughness: 0.68 })
     );
-    stack.position.y = H * 0.44;
-    stack.rotation.x = -0.13;
+    stack.position.set(0, H * 0.42, -0.01);
+    stack.rotation.x = -0.16;
     stack.castShadow = true;
     g.add(stack);
-    this.shoeStack = stack;
 
+    // shell walls (open front so the card can slide out)
     const shell = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), acrylic);
     shell.position.y = H / 2;
     g.add(shell);
 
-    const rim = new THREE.Mesh(new THREE.BoxGeometry(W + 0.014, 0.01, D + 0.014), gold);
-    rim.position.y = H;
-    g.add(rim);
-    const mouth = new THREE.Mesh(new THREE.BoxGeometry(W - 0.02, 0.006, 0.03), new THREE.MeshStandardMaterial({ color: 0x080d0c, roughness: 0.5 }));
-    mouth.position.set(0, H * 0.9, D / 2 - 0.02);
+    for (const [sx, sy, sz, bw, bh, bd] of [
+      [0, H, 0, W + 0.016, 0.012, D + 0.016],
+      [0, 0.012, 0, W + 0.03, 0.024, D + 0.03]
+    ]) {
+      const rim = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, bd), gold);
+      rim.position.set(sx, sy, sz);
+      rim.castShadow = true;
+      g.add(rim);
+    }
+    // chrome roller the cards ride over
+    const roller = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, W - 0.02, 16), chrome);
+    roller.rotation.z = Math.PI / 2;
+    roller.position.set(0, H * 0.88, D / 2 - 0.03);
+    g.add(roller);
+    const mouth = new THREE.Mesh(
+      new THREE.BoxGeometry(W - 0.03, 0.004, 0.02),
+      new THREE.MeshStandardMaterial({ color: 0x05090b, roughness: 0.6 })
+    );
+    mouth.position.set(0, H * 0.86, D / 2 - 0.012);
     g.add(mouth);
-    const foot = new THREE.Mesh(new THREE.BoxGeometry(W + 0.05, 0.018, D + 0.05), new THREE.MeshStandardMaterial({ color: 0x141414, roughness: 0.7 }));
-    foot.position.y = 0.009;
-    g.add(foot);
 
     this.scene.add(g);
     this.shoeGroup = g;
     g.updateMatrixWorld(true);
-    this.shoeDrawPoint = new THREE.Vector3(0, H * 0.94, D / 2 + 0.02).applyMatrix4(g.matrixWorld);
+    this.shoeDrawPoint = new THREE.Vector3(0, H * 0.9, D / 2 + 0.01).applyMatrix4(g.matrixWorld);
   }
 
   _buildDiscard() {
     const g = new THREE.Group();
     const { x, z } = LAYOUT.discard;
     g.position.set(x, 0, z);
-    g.rotation.y = 0.14;
-    const mat = new THREE.MeshPhysicalMaterial({ color: 0x5c3a20, roughness: 0.42, clearcoat: 0.45, metalness: 0.1 });
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.23, 0.05, 0.3), mat);
-    box.position.y = 0.025;
+    g.rotation.y = 0.18;
+    const wood = new THREE.MeshPhysicalMaterial({ color: 0x2a1a12, roughness: 0.4, clearcoat: 0.5, metalness: 0.1 });
+    const box = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.055, 0.32), wood);
+    box.position.y = 0.028;
     box.castShadow = true;
     g.add(box);
-    const inner = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.04, 0.26), new THREE.MeshStandardMaterial({ color: 0x0e0a07, roughness: 0.95 }));
+    const inner = new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.045, 0.28), new THREE.MeshStandardMaterial({ color: 0x080706, roughness: 0.95 }));
     inner.position.y = 0.05;
     g.add(inner);
-    const gold = new THREE.MeshStandardMaterial({ color: 0xd8b36a, metalness: 0.95, roughness: 0.28 });
-    const lip = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.006, 0.006), gold);
-    lip.position.set(0, 0.057, 0.125);
+    const gold = new THREE.MeshStandardMaterial({ color: 0xd8bb78, metalness: 0.95, roughness: 0.25 });
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.007, 0.007), gold);
+    lip.position.set(0, 0.058, 0.135);
     g.add(lip);
     this.scene.add(g);
-    this.discardPoint = new THREE.Vector3(x, 0.07, z);
+    this.discardPoint = new THREE.Vector3(x, 0.075, z);
   }
 
   _buildChipRack() {
     const g = new THREE.Group();
-    g.position.set(0, 0.0, -0.7);
-    const woodMat = new THREE.MeshPhysicalMaterial({ color: 0x3d2414, roughness: 0.42, clearcoat: 0.5 });
-    const tray = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.024, 0.12), woodMat);
-    tray.position.y = 0.013;
+    g.position.set(0, 0, -0.72);
+    const wood = new THREE.MeshPhysicalMaterial({ color: 0x3b2314, roughness: 0.36, clearcoat: 0.6, clearcoatRoughness: 0.3 });
+    const gold = new THREE.MeshStandardMaterial({ color: 0xc9a75e, metalness: 0.95, roughness: 0.25 });
+    const tray = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.028, 0.13), wood);
+    tray.position.y = 0.014;
     tray.castShadow = true;
     tray.receiveShadow = true;
     g.add(tray);
+    const edge = new THREE.Mesh(new THREE.BoxGeometry(0.64, 0.006, 0.135), gold);
+    edge.position.y = 0.03;
+    g.add(edge);
 
     const colors = [
-      ['#e8e6df', '#8f8d86'], ['#c62f3d', '#f0e9dc'], ['#2f6ac6', '#eef2f7'],
+      ['#eeece4', '#8a8880'], ['#c62f3d', '#f4ece0'], ['#2f6ac6', '#eef2f7'],
       ['#1f7a4d', '#e8f0ea'], ['#20232b', '#d9b45c'], ['#8e3ea8', '#f0e9dc'],
       ['#d9a53a', '#2a2620'], ['#3b3f4a', '#cfd6e2']
     ];
     colors.forEach((c, i) => {
-      const n = 3 + Math.floor(Math.random() * 5);
+      const n = 3 + Math.floor(Math.random() * 6);
+      const mat = new THREE.MeshPhysicalMaterial({
+        map: chipTexture(c[0], c[1]), roughness: 0.38, metalness: 0.08, clearcoat: 0.6, clearcoatRoughness: 0.25
+      });
       for (let k = 0; k < n; k++) {
-        const chip = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.025, 0.025, 0.0092, 24),
-          new THREE.MeshPhysicalMaterial({
-            map: chipTexture(c[0], c[1]), roughness: 0.42, metalness: 0.06, clearcoat: 0.45
-          })
-        );
-        chip.position.set(-0.215 + i * 0.0615, 0.028 + k * 0.0098, 0);
-        chip.rotation.y = Math.random() * 0.6;
+        const chip = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.0095, 28), mat);
+        chip.position.set(-0.245 + i * 0.07 + (Math.random() - 0.5) * 0.004, 0.033 + k * 0.0102, (Math.random() - 0.5) * 0.006);
+        chip.rotation.y = Math.random() * 0.8;
         chip.castShadow = true;
         g.add(chip);
       }
@@ -464,185 +410,194 @@ export class BaccaratTable {
     this.scene.add(g);
   }
 
+  /* ---------------------------------------------------------- dealer */
+  _buildDealer(profile) {
+    const p = profile || {};
+    this.dealerPhoto = new PhotoPerson({
+      file: `${p.id || 'sofia'}.webp`,
+      height: 1.34,
+      x: 0,
+      y: LAYOUT.dealerY + 0.67, // group origin = plane centre
+      z: LAYOUT.dealerZ
+    });
+    this.scene.add(this.dealerPhoto.group);
+    this.dealerPhoto.load().catch((e) => console.warn('[dealer photo]', e));
+
+    // contact shadow under the figure / table
+    const sh = contactShadow(1.5, 0.5);
+    sh.position.set(0, -0.68, -0.9);
+    this.scene.add(sh);
+  }
+
+  setDealer(profile) {
+    this.profile = profile;
+    if (this.dealerPhoto) {
+      this.scene.remove(this.dealerPhoto.group);
+      this.dealerPhoto.dispose();
+    }
+    this._buildDealer(profile);
+  }
+
+  /* --------------------------------------------------------- camera */
   frameCamera() {
     const el = this.canvas.parentElement || this.canvas;
     const aspect = (el.clientWidth || 1) / (el.clientHeight || 1);
-    // Broadcast framing: dealer head near the top, card area just above the
-    // UI overlay. Wider screens pull back so the table edges stay in frame.
-    const fov = aspect > 1.4 ? 42 : 46;
-    const dist = aspect > 1.4 ? 3.0 : 3.1;
-    this.camTarget.set(0, aspect > 1.4 ? -0.06 : 0.04, -0.45);
-    this.camera.position.set(0, aspect > 1.4 ? 1.05 : 1.12, this.camTarget.z + dist * 0.97);
-    this.camera.fov = fov;
+    // Broadcast framing: head and shoulders upper third, felt in the lower half.
+    if (aspect > 1.55) {
+      this.camera.fov = 44;
+      this.camera.position.set(0, 2.05, 2.90);
+      this.camTarget = new THREE.Vector3(0, 0.10, -0.35);
+    } else if (aspect > 1.1) {
+      this.camera.fov = 46;
+      this.camera.position.set(0, 2.05, 3.05);
+      this.camTarget = new THREE.Vector3(0, 0.10, -0.35);
+    } else {
+      this.camera.fov = 56;
+      this.camera.position.set(0, 1.95, 2.85);
+      this.camTarget = new THREE.Vector3(0, -0.32, -0.40);
+    }
     this.camera.lookAt(this.camTarget);
     this.camera.updateProjectionMatrix();
   }
 
   onResize() {
     const el = this.canvas.parentElement || this.canvas;
-    const w = el.clientWidth || 1;
-    const h = el.clientHeight || 1;
-    this.renderer.setSize(w, h, false);
-    this.camera.aspect = w / h;
+    resizeTo(this.renderer, this.camera, el, this.composer);
     this.frameCamera();
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
   }
 
-  /* ------------------------------------------------------------- loop */
+  /* ------------------------------------------------------------ loop */
   _loop(now) {
     if (!this.running) return;
     const dt = Math.min(0.05, (now - this.lastT) / 1000);
     this.lastT = now;
 
-    this.dealer.update(dt);
-
-    for (const c of this.carried) {
-      if (c.state !== 'carried') continue;
-      const palm = this.dealer.arms[c.hand].hand;
-      const wp = new THREE.Vector3(0, -0.062, 0.012).applyMatrix4(palm.matrixWorld);
-      c.mesh.position.copy(wp);
-      const handQ = new THREE.Quaternion();
-      palm.getWorldQuaternion(handQ);
-      const carryQ = handQ.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, Math.PI / 2)));
-      const flatQ = new THREE.Quaternion().setFromEuler(new THREE.Euler(0, c.slotRot, 0));
-      c.mesh.quaternion.copy(carryQ).slerp(flatQ, c.flip);
-      c.mesh.position.y += Math.sin(c.flip * Math.PI) * 0.018;
-    }
-
-    if (this.autoIdle) {
-      this.gazeTimer -= dt;
-      if (this.gazeTimer <= 0) {
-        this.gazeTimer = 2.4 + Math.random() * 3.6;
-        const pick = Math.random();
-        if (pick < 0.36) this.dealer.look(new THREE.Vector3(0, 0.9, 2.4), 1);
-        else if (pick < 0.62) this.dealer.look(new THREE.Vector3(0.3, 0.04, -0.4), 0.95);
-        else if (pick < 0.8) this.dealer.look(new THREE.Vector3(-0.3, 0.04, -0.4), 0.95);
-        else this.dealer.look(new THREE.Vector3(0.5, 0.14, -0.62), 0.85);
+    if (this.dealerPhoto) {
+      if (this.autoIdle !== false) {
+        this.gazeTimer -= dt;
+        if (this.gazeTimer <= 0) {
+          this.gazeTimer = 2.6 + Math.random() * 3.4;
+          this.dealerPhoto.lean(Math.random() > 0.78 ? 0.22 : 0.05);
+        }
       }
+      this.dealerPhoto.update(dt);
     }
 
-    this.renderer.render(this.scene, this.camera);
+    this.composer.render();
     requestAnimationFrame(this._loop);
   }
 
-  /* -------------------------------------------------------- dealing API */
+  /* -------------------------------------------------------- dealing */
   _slot(side, index) {
     const slots = LAYOUT.slots[side];
     return slots[Math.min(index, slots.length - 1)];
   }
 
-  focusSlot(side, index) {
-    const slot = this._slot(side, index);
+  focusSlot(side) {
     this.autoIdle = false;
-    this.dealer.look(new THREE.Vector3(slot.x, 0.03, slot.z), 1);
+    if (this.dealerPhoto) this.dealerPhoto.lean(0.16);
   }
 
+  /**
+   * Card out of the shoe → carried over the felt → corner lifted (squeeze)
+   * → peeled over and snapped face-up.
+   */
   async dealCard(side, index, cardData, { speed = 1 } = {}) {
     const slot = this._slot(side, index);
-    // player cards come from the shoe hand crossing the body; banker from the near hand
-    const useHand = side === 'P' ? 'R' : 'R';
-    const hand = useHand;
-    const slotPos = new THREE.Vector3(slot.x, 0.003, slot.z);
-
-    this.autoIdle = false;
-    this.dealer.setLean(1);
-    this.dealer.look(this.shoeDrawPoint.clone().add(new THREE.Vector3(0, 0.04, 0)), 1);
-    this.dealer.setHandTarget(hand, this.shoeDrawPoint.clone(), {
-      weight: 1, grip: 0, roll: hand === 'L' ? -0.55 : 0.55
-    });
-    await wait(250 / speed);
-
     const card = createCard(cardData.rank, cardData.suit);
-    card.position.copy(this.shoeDrawPoint);
+    const from = this.shoeDrawPoint.clone();
+    card.position.copy(from);
+    card.rotation.set(Math.PI, 0, 0);
     this.scene.add(card);
-    const entry = { mesh: card, hand, state: 'carried', flip: 0, slotRot: slot.rot, data: cardData };
-    this.carried.push(entry);
 
-    this.dealer.arms[hand].gripTarget = 1;
-    await wait(110 / speed);
+    if (this.dealerPhoto) this.dealerPhoto.lean(0.55);
 
-    const above = slotPos.clone().add(new THREE.Vector3(0, 0.085, 0.03));
-    this.dealer.look(above, 0.85);
-    this.dealer.setHandTarget(hand, above, { weight: 1, grip: 1, roll: hand === 'L' ? -0.35 : 0.35 });
-
-    const t0 = performance.now();
-    const dur = 320 / speed;
+    // A — slide out of the shoe along a shallow arc
+    const hover = new THREE.Vector3(slot.x, 0.075, slot.z + 0.06);
+    const durA = 340 / speed;
     await new Promise((resolve) => {
-      const step = (now) => {
-        const t = Math.min(1, (now - t0) / dur);
-        entry.flip = easeInOut(Math.max(0, (t - 0.1) / 0.9));
+      const t0 = performance.now();
+      const step = (n) => {
+        const t = Math.min(1, (n - t0) / durA);
+        const e = easeOutCubic(t);
+        card.position.lerpVectors(from, hover, e);
+        card.position.y = lerp(from.y, hover.y, e) + Math.sin(Math.PI * e) * 0.045;
+        card.rotation.z = Math.sin(Math.PI * e) * -0.35;
         if (t < 1) requestAnimationFrame(step);
         else resolve();
       };
       requestAnimationFrame(step);
     });
 
-    this.dealer.setHandTarget(hand, slotPos.clone().add(new THREE.Vector3(0, 0.008, 0)), { weight: 1, grip: 0.55 });
-    await wait(130 / speed);
+    // B — squeeze: the near corner lifts, the card stands up on its edge
+    const durB = 210 / speed;
+    await new Promise((resolve) => {
+      const t0 = performance.now();
+      const step = (n) => {
+        const t = Math.min(1, (n - t0) / durB);
+        const e = easeInOutCubic(t);
+        card.rotation.x = Math.PI * (1 - e * 0.72); // peels toward the camera
+        card.rotation.z = lerp(-0.35, -0.12, e);
+        card.position.y = lerp(0.075, 0.052, e);
+        card.position.z = lerp(slot.z + 0.06, slot.z + 0.03, e);
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      };
+      requestAnimationFrame(step);
+    });
+    await wait(45 / speed);
 
-    this.scene.attach(card);
-    this.carried = this.carried.filter((c) => c !== entry);
-    card.position.set(slot.x, 0.0015, slot.z);
-    card.quaternion.setFromEuler(new THREE.Euler(0, slot.rot, 0));
+    // C — snap flat, face up
+    const durC = 200 / speed;
+    await new Promise((resolve) => {
+      const t0 = performance.now();
+      const step = (n) => {
+        const t = Math.min(1, (n - t0) / durC);
+        const e = easeInOutCubic(t);
+        card.rotation.x = Math.PI * 0.28 * (1 - e);
+        card.rotation.z = 0;
+        card.position.set(
+          lerp(slot.x + 0.01, slot.x, e),
+          lerp(0.052, 0.0035, e) + Math.sin(Math.PI * e) * 0.005,
+          lerp(slot.z + 0.03, slot.z, e)
+        );
+        if (t < 1) requestAnimationFrame(step);
+        else resolve();
+      };
+      requestAnimationFrame(step);
+    });
+
+    card.rotation.set(0, slot.rot, 0);
+    card.position.set(slot.x, 0.0018 + index * 0.0006, slot.z);
     this.cards.push(card);
-    this.dealer.arms[hand].gripTarget = 0;
-    this.dealer.setHandTarget(hand, this._restHand(hand), { weight: 0 });
-    await wait(110 / speed);
+    if (this.dealerPhoto) this.dealerPhoto.lean(0.1);
     return card;
-  }
-
-  _restHand(side) {
-    const s = side === 'L' ? -1 : 1;
-    return new THREE.Vector3(s * 0.28, 0.42, -0.5);
   }
 
   async sweep({ speed = 1 } = {}) {
     if (!this.cards.length) return;
-    this.dealer.setLean(1);
-    this.dealer.look(new THREE.Vector3(-0.2, 0.03, -0.45), 1);
-    const first = this.cards[0].position.clone().add(new THREE.Vector3(0.06, 0.03, 0));
-    this.dealer.setHandTarget('R', first, { weight: 1, grip: 0.85, roll: 0.55 });
-    await wait(210 / speed);
-
-    const end = new THREE.Vector3(-0.5, 0.04, -0.42);
-    this.dealer.setHandTarget('R', end, { weight: 1, grip: 0.85 });
+    if (this.dealerPhoto) this.dealerPhoto.lean(0.5);
     const cards = this.cards.slice();
-    const t0 = performance.now();
-    const dur = 360 / speed;
+    const dur = 520 / speed;
     await new Promise((resolve) => {
-      const step = (now) => {
-        const t = Math.min(1, (now - t0) / dur);
-        const e = easeInOut(t);
+      const t0 = performance.now();
+      const step = (n) => {
+        const t = Math.min(1, (n - t0) / dur);
+        const e = easeInOutCubic(t);
         cards.forEach((c, i) => {
-          const delay = Math.min(0.6, i * 0.07);
+          const delay = Math.min(0.5, i * 0.06);
           const tt = Math.max(0, Math.min(1, (e - delay) / (1 - delay || 1)));
-          c.position.x = lerp(c.position.x, -0.52, tt * 0.9);
-          c.position.y = 0.0015 + Math.sin(tt * Math.PI) * 0.004;
+          c.position.x = lerp(c.position.x, -0.5, tt);
+          c.position.y = 0.002 + Math.sin(tt * Math.PI) * 0.02;
+          c.position.z = lerp(c.position.z, -0.5, tt * 0.7);
+          c.rotation.z = Math.sin(tt * Math.PI) * 0.4;
+          c.scale.setScalar(1 - tt * 0.25);
         });
         if (t < 1) requestAnimationFrame(step);
         else resolve();
       };
       requestAnimationFrame(step);
     });
-
-    this.dealer.setHandTarget('R', this.discardPoint.clone().add(new THREE.Vector3(0, 0.04, 0)), { weight: 1, grip: 0.9 });
-    const t1 = performance.now();
-    const dur2 = 300 / speed;
-    await new Promise((resolve) => {
-      const step = (now) => {
-        const t = Math.min(1, (now - t1) / dur2);
-        const e = easeOut(t);
-        cards.forEach((c) => {
-          c.position.lerp(this.discardPoint.clone(), e * 0.92);
-          c.scale.setScalar(1 - e * 0.3);
-          c.position.y = lerp(c.position.y, 0.055, e);
-        });
-        if (t < 1) requestAnimationFrame(step);
-        else resolve();
-      };
-      requestAnimationFrame(step);
-    });
-
     cards.forEach((c) => {
       this.scene.remove(c);
       c.traverse((o) => {
@@ -651,32 +606,28 @@ export class BaccaratTable {
       });
     });
     this.cards = this.cards.filter((c) => !cards.includes(c));
-    this.dealer.setHandTarget('R', this._restHand('R'), { weight: 0 });
-    this.dealer.setLean(0);
-    await wait(150 / speed);
+    if (this.dealerPhoto) this.dealerPhoto.lean(0.1);
   }
 
   setPhase(phase) {
     this.phase = phase;
     if (phase === 'betting') {
       this.autoIdle = true;
-      this.dealer.setLean(0);
-      this.dealer.look(new THREE.Vector3(0, 0.9, 2.4), 1);
-      this.gazeTimer = 1.2;
+      if (this.dealerPhoto) this.dealerPhoto.lean(0.04);
+      this.gazeTimer = 1.0;
     }
     if (phase === 'closed') {
       this.autoIdle = false;
-      this.dealer.look(new THREE.Vector3(0, 0.04, -0.45), 1);
+      if (this.dealerPhoto) this.dealerPhoto.lean(0.35);
     }
     if (phase === 'result') this.autoIdle = true;
   }
 
   async celebrate() {
-    this.dealer.look(new THREE.Vector3(0, 0.05, -0.45), 1);
-    const side = Math.random() > 0.5 ? 'R' : 'L';
-    this.dealer.setHandTarget(side, new THREE.Vector3(side === 'R' ? 0.42 : -0.42, 0.5, -0.3), { weight: 1, grip: 0.15 });
-    await wait(240);
-    this.dealer.setHandTarget(side, this._restHand(side), { weight: 0 });
+    if (!this.dealerPhoto) return;
+    this.dealerPhoto.lean(0.62);
+    await wait(320);
+    this.dealerPhoto.lean(0.1);
   }
 
   clearTable() {

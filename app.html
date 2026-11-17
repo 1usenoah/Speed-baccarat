@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#05090c" />
+    <title>EVOLAB LIVE · SPEED BACCARAT &amp; CRAZY TIME</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230b1418'/><path d='M16 6l9 10-9 10-9-10z' fill='%23d8b46a'/></svg>" />
+    <script type="module" src="/src/main.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <!-- ================================================= TOP BAR -->
+      <header class="topbar">
+        <div class="tb-left">
+          <div class="brand">
+            <span class="brand-mark">◆</span>
+            <span class="brand-text"><b>EVOLAB</b><i>LIVE CASINO</i></span>
+          </div>
+          <nav class="game-switch" id="gameSwitch">
+            <button class="gs is-active" data-game="baccarat">
+              <span class="gs-t">SPEED<br />BACCARAT</span>
+            </button>
+            <button class="gs" data-game="crazy">
+              <span class="gs-t">CRAZY<br />TIME</span>
+            </button>
+          </nav>
+        </div>
+
+        <div class="tb-right">
+          <div class="stat balance-stat">
+            <label>BALANCE</label>
+            <b id="balance">1,000,000</b>
+            <button id="refillBtn" class="refill-btn" type="button">+ 충전</button>
+          </div>
+          <div class="stat bet-stat">
+            <label>TOTAL BET</label>
+            <b id="totalBet">0</b>
+          </div>
+          <div class="badge" id="statusBadge">PLACE YOUR BETS</div>
+          <div class="account-host" id="accountHost"></div>
+          <div class="tb-icons">
+            <button id="soundBtn" class="icon-btn" type="button" title="사운드" aria-label="사운드">
+              <span class="on">🔊</span><span class="off">🔇</span>
+            </button>
+            <button id="rulesBtn" class="icon-btn" type="button" title="규칙" aria-label="규칙">?</button>
+            <button id="rankBtn" class="icon-btn rank-btn" type="button" title="랭킹" aria-label="랭킹">🏆</button>
+            <button id="fullBtn" class="icon-btn" type="button" title="전체화면" aria-label="전체화면">⛶</button>
+          </div>
+        </div>
+      </header>
+
+      <main id="views">
+        <!-- ============================================= SPEED BACCARAT -->
+        <section id="view-baccarat" class="view is-active">
+          <div class="bac-layout">
+            <div class="stage" id="bacStage">
+              <canvas id="bacCanvas"></canvas>
+              <div class="stage-glow"></div>
+              <div class="live-tag"><i></i><span>LIVE</span></div>
+              <div class="stage-badge" id="stageBadge">PLACE YOUR BETS</div>
+              <button class="lobby-btn" id="bacLobbyBtn" type="button">☰ LOBBY</button>
+              <div class="dealer-plate">
+                <b>DEALER</b><span>SOFIA</span>
+              </div>
+              <div class="card-feed" id="cardFeed">
+                <div class="cf-row" data-feed="P"><b>PLAYER</b><div class="cf-cards"></div><span class="cf-total">-</span></div>
+                <div class="cf-row" data-feed="B"><b>BANKER</b><div class="cf-cards"></div><span class="cf-total">-</span></div>
+              </div>
+              <div class="stage-score" id="stageScore">
+                <div class="ss player"><label>PLAYER</label><b>0</b></div>
+                <div class="ss tie"><label>TIE</label><b>0</b></div>
+                <div class="ss banker"><label>BANKER</label><b>0</b></div>
+              </div>
+              <div class="timer" id="bacTimer">
+                <svg viewBox="0 0 120 120">
+                  <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+                  <circle class="ring-fg" id="ringFg" cx="60" cy="60" r="52"></circle>
+                </svg>
+                <div class="timer-num"><b id="timerNum">10</b><span id="timerLabel">PLACE<br />YOUR BETS</span></div>
+              </div>
+              <div class="result-banner" id="resultBanner"></div>
+            </div>
+
+            <div class="bet-panel">
+              <div class="bet-grid">
+                <div class="zone zone-player" data-zone="P">
+                  <div class="zone-head"><b>PLAYER</b><i>PAYS 1:1</i></div>
+                  <div class="dist"><i data-dist="P"></i><span data-distn="P">0%</span></div>
+                  <div class="chip-layer" data-chips="P"></div>
+                </div>
+                <div class="zone-mid">
+                  <div class="zone zone-tie" data-zone="T">
+                    <div class="zone-head"><b>TIE</b><i>8:1</i></div>
+                    <div class="dist"><i data-dist="T"></i><span data-distn="T">0%</span></div>
+                    <div class="chip-layer" data-chips="T"></div>
+                  </div>
+                  <div class="pairs">
+                    <div class="zone zone-pair" data-zone="PP">
+                      <b>P PAIR</b><i>11:1</i>
+                      <div class="chip-layer" data-chips="PP"></div>
+                    </div>
+                    <div class="zone zone-pair" data-zone="BP">
+                      <b>B PAIR</b><i>11:1</i>
+                      <div class="chip-layer" data-chips="BP"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="zone zone-banker" data-zone="B">
+                  <div class="zone-head"><b>BANKER</b><i>PAYS 0.95:1</i></div>
+                  <div class="dist"><i data-dist="B"></i><span data-distn="B">0%</span></div>
+                  <div class="chip-layer" data-chips="B"></div>
+                </div>
+              </div>
+              <div class="controls">
+                <div class="chip-tray" id="chipTray"></div>
+                <div class="ctrl-btns">
+                  <button data-ctrl="undo" type="button">UNDO</button>
+                  <button data-ctrl="repeat" type="button">REPEAT</button>
+                  <button data-ctrl="double" type="button">2X DOUBLE</button>
+                  <button data-ctrl="clear" type="button">CLEAR</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="roadmap-panel">
+              <div class="rm-head">
+                <b>ROADMAP</b>
+                <div class="rm-stats" id="rmStats"></div>
+                <div class="predict none" id="rmPredict"><span>NEXT</span><b>—</b></div>
+              </div>
+              <div class="rm-body">
+                <div class="rm-block">
+                  <h4>BEAD PLATE</h4>
+                  <div class="rm-scroll" id="rmBead"></div>
+                </div>
+                <div class="rm-block rm-wide">
+                  <h4>BIG ROAD</h4>
+                  <div class="rm-scroll" id="rmBig"></div>
+                </div>
+                <div class="rm-col">
+                  <div class="rm-block">
+                    <h4>BIG EYE BOY</h4>
+                    <div class="rm-scroll" id="rmBeb"></div>
+                  </div>
+                  <div class="rm-block">
+                    <h4>SMALL ROAD</h4>
+                    <div class="rm-scroll" id="rmSr"></div>
+                  </div>
+                  <div class="rm-block">
+                    <h4>COCKROACH PIG</h4>
+                    <div class="rm-scroll" id="rmCp"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================================================= CRAZY TIME -->
+        <section id="view-crazy" class="view">
+          <div class="ct-layout">
+            <div class="stage ct-stage" id="ctStage">
+              <canvas id="ctCanvas"></canvas>
+              <div class="stage-glow"></div>
+              <div class="live-tag"><i></i><span>LIVE</span></div>
+              <div class="stage-badge" id="ctStageBadge">PLACE YOUR BETS</div>
+              <div class="top-slot" id="topSlot">
+                <div class="slot-label">TOP SLOT</div>
+                <div class="reel" id="reelA"><div class="reel-strip"></div></div>
+                <div class="reel" id="reelB"><div class="reel-strip"></div></div>
+              </div>
+              <div class="timer ct-timer" id="ctTimer">
+                <svg viewBox="0 0 120 120">
+                  <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+                  <circle class="ring-fg" id="ctRingFg" cx="60" cy="60" r="52"></circle>
+                </svg>
+                <div class="timer-num"><b id="ctTimerNum">10</b><span id="ctTimerLabel">PLACE<br />YOUR BETS</span></div>
+              </div>
+              <div class="ct-result-banner" id="ctBanner"></div>
+              <div class="ct-history" id="ctHistory"></div>
+            </div>
+
+            <div class="bet-panel ct-bet-panel">
+              <div class="ct-grid" id="ctGrid">
+                <div class="czone" data-zone="n1"><b>1</b><i>1:1</i><div class="chip-layer" data-chips="n1"></div></div>
+                <div class="czone" data-zone="n2"><b>2</b><i>2:1</i><div class="chip-layer" data-chips="n2"></div></div>
+                <div class="czone" data-zone="n5"><b>5</b><i>5:1</i><div class="chip-layer" data-chips="n5"></div></div>
+                <div class="czone" data-zone="n10"><b>10</b><i>10:1</i><div class="chip-layer" data-chips="n10"></div></div>
+                <div class="czone bonus cf" data-zone="cf"><b>COIN<br />FLIP</b><div class="chip-layer" data-chips="cf"></div></div>
+                <div class="czone bonus pa" data-zone="pa"><b>PACHINKO</b><div class="chip-layer" data-chips="pa"></div></div>
+                <div class="czone bonus ch" data-zone="ch"><b>CASH<br />HUNT</b><div class="chip-layer" data-chips="ch"></div></div>
+                <div class="czone bonus ct" data-zone="ct"><b>CRAZY<br />TIME</b><div class="chip-layer" data-chips="ct"></div></div>
+              </div>
+              <div class="controls">
+                <div class="chip-tray" id="ctChipTray"></div>
+                <div class="ctrl-btns">
+                  <button data-ctrl="undo" type="button">UNDO</button>
+                  <button data-ctrl="repeat" type="button">REPEAT</button>
+                  <button data-ctrl="double" type="button">2X DOUBLE</button>
+                  <button data-ctrl="clear" type="button">CLEAR</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <div id="modalRoot"></div>
+      <div id="toastRoot"></div>
+    </div>
+  </body>
+</html>
