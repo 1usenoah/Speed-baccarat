@@ -60,11 +60,13 @@ async function session({ viewport, mobile = false, query = '', tag }) {
 // ---------- desktop baccarat
 {
   const s = await session({ viewport: { width: 1440, height: 900 }, tag: 'bac-desktop' });
-  await s.page.waitForFunction(() => window.__SB?.state?.().phase === 'dealing', null, { timeout: 90000, polling: 120 }).catch(() => {});
-  await wait(2200);
+  await s.page.waitForFunction(() => window.__SB?.state?.().phase === 'dealing', null, { timeout: 90000, polling: 60 }).catch(() => {});
+  await wait(900);
   await s.shot('v3_bac_desktop_deal');
-  await wait(1600);
+  await wait(1200);
   await s.shot('v3_bac_desktop_squeeze');
+  await wait(1400);
+  await s.shot('v3_bac_desktop_squeeze2');
   await s.page.waitForFunction(() => window.__SB?.state?.().phase === 'result', null, { timeout: 90000, polling: 120 }).catch(() => {});
   await wait(500);
   await s.shot('v3_bac_desktop_result');
@@ -81,8 +83,8 @@ async function session({ viewport, mobile = false, query = '', tag }) {
 }
 {
   const s = await session({ viewport: { width: 390, height: 844 }, mobile: true, tag: 'bac-mobile' });
-  await s.page.waitForFunction(() => window.__SB?.state?.().phase === 'dealing', null, { timeout: 90000, polling: 120 }).catch(() => {});
-  await wait(2600);
+  await s.page.waitForFunction(() => window.__SB?.state?.().phase === 'dealing', null, { timeout: 90000, polling: 60 }).catch(() => {});
+  await wait(2400);
   await s.shot('v3_bac_mobile');
   await s.done();
 }
